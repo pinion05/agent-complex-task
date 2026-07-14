@@ -1,59 +1,70 @@
-# Agent Complex Task Session
+# YouTube Transcript Extraction — Agent Debug Session
 
-A complete GJC (gajae-code) agent session performing a complex multi-step task, published for transparency and reproducibility.
+Raw GJC agent session log of attempts to extract YouTube video transcripts at scale. Published as a case study of YouTube's anti-bot defenses in 2026.
 
-## What This Session Contains
+## What Happened
 
-This is a raw JSONL session log from a GJC coding agent working through a complex, multi-phase task. The session includes:
+Goal: Extract transcripts from 49 YouTube videos comparing AI models (Claude Fable 5 vs GLM 5.2 vs GPT 5.6).
 
-- **User conversation** — all prompts and responses
-- **Agent reasoning** — thinking/reasoning blocks (Claude Fable / GLM-5.2)
-- **Tool calls** — bash, read, write, edit, search, browser, web_search, telegram_send, irc
-- **Subagent spawning** — Xiaomi MiMo-V2.5-Pro parallel subagent definition and execution
-- **System events** — model changes, workflow routing, skill triggers
+### Methods Tried (all failed from this environment)
 
-## Task Summary
+| Method | Result | Block Layer |
+|---|---|---|
+| youtube-transcript-api | IpBlocked after 10 reqs | IP rate limit |
+| yt-dlp subtitle download | HTTP 429 | IP rate limit |
+| Direct timedtext API (curl) | Google captcha page | Bot detection |
+| Browser fetch (same-origin) | Google captcha page | Headless detection |
+| youtubetranscript.com | Their server also blocked | Service-level block |
+| Innertube get_transcript | 400 (protobuf params) | Protocol complexity |
+| Tor SOCKS5 proxy | Bot detection / consent page | Tor exit node block |
+| yt-dlp + Tor | "Sign in to confirm not bot" | Bot detection |
+| yt-dlp + cookies | PO Token required | PO Token system |
+| yt-dlp + Android client | 429 on download | IP rate limit |
+| bgutil PO Token provider | Token generated but 429 persists | IP rate limit separate |
+| PO Token + Tor | No subtitles found (consent) | Tor exit restricted |
 
-1. **Subagent model configuration research** — investigated GJC's subagent model specification system
-2. **Xiaomi MiMo-V2.5-Pro agent setup** — registered API credential, created custom agent definition, tested with 1 + 100 parallel spawns
-3. **YouTube video search** — searched and collected 49 AI model comparison videos (Claude Fable 5 vs GLM 5.2 vs GPT 5.6)
-4. **Transcript extraction attempts** — youtube-transcript-api, yt-dlp, browser fetch, tor proxy, PO Token provider setup
-5. **Analysis website generation** — built an integrated comparison report HTML page
-6. **IP block investigation** — comprehensive research into YouTube's anti-bot measures (429, PO Token, bot detection)
+### What Worked
 
-## PII Masking
+- YouTube watch page: HTTP 200 (not rate-limited)
+- YouTube search page: Normal
+- Video metadata/descriptions via `read` tool: Full access
+- PO Token generation (bgutil-ytdlp-pot-provider): Successful
 
-All personally identifiable information has been masked:
-- API keys → `***MASKED***`
-- IP addresses → `***.***.***.***`
-- Email addresses → `***@***.***`
-- File paths with usernames → `/home/user/`
-- OAuth tokens → `***MASKED***`
-- Private keys → `***PRIVATE_KEY_MASKED***`
+### Root Cause
 
-## Files
+YouTube applies **4 independent anti-bot layers** on the timedtext/caption endpoint:
+1. IP rate limiting (429)
+2. Bot detection (captcha / "Sign in")
+3. PO Token (Proof of Origin) requirement
+4. Tor exit node blocking
 
-| File | Description |
-|---|---|
-| `session.jsonl` | Full masked session log (JSONL format, 187 entries) |
+No single bypass solves all 4 layers simultaneously from a datacenter IP.
 
-## Session Stats
+### Solutions That Would Work
 
-- **Duration**: ~4 hours
-- **Models used**: Claude Fable (xhigh thinking), GLM-5.2, Xiaomi MiMo-V2.5-Pro
-- **Tools invoked**: bash, read, write, edit, search, browser, web_search, telegram_send, irc, generate_image
-- **Subagents spawned**: 100+ (mimo-pro)
-- **Lines**: 187 JSONL entries
+1. Wait 12-24h for rate limit expiry + PO Token
+2. Residential proxy (WebShare ~$3/mo)
+3. Hosted transcript API (TranscriptAPI ~$5/mo)
+4. Different network/IP entirely
 
-## Tools & Infrastructure Used
+## Infrastructure Used
 
 - GJC v0.10.1 (gajae-code)
-- Xiaomi MiMo-V2.5-Pro (via Token Plan Singapore)
 - yt-dlp 2026.07.04 + bgutil-ytdlp-pot-provider 1.3.1
 - tor 0.4.8.10 (SOCKS5 proxy)
 - youtube-transcript-api
-- Headless Chromium (browser tool)
+- Headless Chromium
+
+## File
+
+| File | Description |
+|---|---|
+| `session.jsonl` | 382 JSONL entries — transcript extraction attempts, tor setup, PO Token provider, proxy tests |
+
+## PII Masking
+
+All API keys, tokens, IP addresses, emails, and file paths have been masked with `***MASKED***`.
 
 ## License
 
-MIT — this session log is published for educational and research purposes.
+MIT
